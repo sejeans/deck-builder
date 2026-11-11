@@ -1,0 +1,205 @@
+<style>
+  :root { --bg: var(--figma-color-bg, #fff); --fg: var(--figma-color-text, #1b1b1b); --sub: var(--figma-color-text-secondary, #777);
+          --line: var(--figma-color-border, #e3e3e3); --soft: var(--figma-color-bg-secondary, #f5f5f5); --brand: var(--figma-color-bg-brand, #0d99ff); }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; font: 12px/1.5 Inter, "Pretendard", system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+  h2 { font-size: 13px; margin: 0 0 2px; }
+  .sec { margin-bottom: 14px; }
+  .lbl { font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .lbl a { font-weight: 400; color: var(--brand); cursor: pointer; }
+  textarea { width: 100%; height: 210px; resize: vertical; font: 11px/1.45 ui-monospace, Menlo, monospace; padding: 8px;
+             border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  .drop { border: 1px dashed var(--line); border-radius: 6px; padding: 14px; text-align: center; color: var(--sub); cursor: pointer; }
+  .drop.on { border-color: var(--brand); color: var(--brand); }
+  .files { margin-top: 6px; max-height: 168px; overflow: auto; }
+  .files .f { display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+  .files .f img, .files .f .ph { width: 32px; height: 24px; object-fit: cover; border-radius: 3px; background: var(--soft); flex: none; }
+  .files .f .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .files .f .st { flex: none; }
+  .files .f .del { width: 22px; height: 22px; flex: none; padding: 0; border: 0; border-radius: 4px; background: transparent;
+                   color: var(--sub); font-size: 16px; line-height: 22px; cursor: pointer; }
+  .files .f .del:hover { background: var(--soft); color: #f24822; }
+  .ok { color: #14ae5c; } .miss { color: #f24822; } .muted { color: var(--sub); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input[type=color] { width: 32px; height: 24px; border: 1px solid var(--line); border-radius: 4px; padding: 0; background: none; vertical-align: middle; }
+  button { width: 100%; height: 36px; border: 0; border-radius: 6px; background: var(--brand); color: #fff; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; }
+  .out { margin-top: 10px; padding: 10px; border-radius: 6px; background: var(--soft); white-space: pre-wrap; max-height: 150px; overflow: auto; }
+  .out:empty { display: none; }
+</style>
+
+<div class="sec">
+  <h2>Deck Builder</h2>
+  <div class="muted">slides.md(또는 deck.json)와 사진·차트를 넣으면 슬라이드를 만듭니다.</div>
+</div>
+
+<div class="sec">
+  <div class="lbl">slides.md <span><a id="open">파일 열기</a> · <a id="sample">샘플</a></span></div>
+  <textarea id="src" spellcheck="false" placeholder="# 제목&#10;- 항목 — 설명&#10;&#10;---&#10;&#10;# 다음 슬라이드"></textarea>
+  <input type="file" id="srcFile" accept=".md,.markdown,.txt,.json" hidden>
+  <div class="muted" id="status"></div>
+</div>
+
+<div class="sec">
+  <div class="lbl">사진·차트 <a id="clear">비우기</a></div>
+  <div class="drop" id="drop">assets 폴더의 파일을 전부 끌어 놓기<br><span class="muted">이름이 slides.md의 ![](파일명)과 같으면 자동 연결</span></div>
+  <input type="file" id="imgFile" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+  <div class="files" id="files"></div>
+</div>
+
+<div class="sec row">
+  <label><input type="checkbox" id="override"> 색 바꾸기</label>
+  <label>형광펜 <input type="color" id="hl" value="#FFD43B"></label>
+  <label>포인트 <input type="color" id="pt" value="#E03131"></label>
+</div>
+
+<button id="go">슬라이드 생성</button>
+<div class="out" id="out"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let images = [];
+let refs = [];
+
+const SAMPLE = `---
+title: 강의실 혼잡도 예측
+---
+
+# 와이파이 접속 로그 기반 강의실 혼잡도 예측
+## 15분 뒤 빈 강의실을 안내하는 서비스 설계와 검증
+meta: 2026.10 · 산업데이터공학과
+
+---
+
+<!-- agenda -->
+
+---
+
+# 연구 배경
+## 빈 공간을 찾는 데 쓰는 시간과 원인
+
+---
+
+# 문제 정의
+> 학생들은 빈 자리를 찾느라 하루 평균 ==14분==을 쓰며, 원인은 실시간 정보의 부재임
+
+- **현황** — 교내 설문(412명) 결과 탐색에 하루 평균 14분 소요
+  - 시험 기간에는 평균 23분으로 증가
+- **원인** — 공간 정보가 시간표 기준으로만 제공되어 실제 사용과 다름
+- **목표** — 15분 뒤 혼잡도를 예측해 이동 전에 확인
+source: 교내 설문조사(2026.09, n=412)
+
+---
+
+# 분석 결과
+## 예측 성능 비교
+
+---
+
+# 모델별 예측 성능
+> LightGBM이 정확도 92%로 가장 높고 학습도 4분으로 가장 짧았음
+
+| 모델 | MAE | 정확도 | 학습 시간 |
+|---|---|---|---|
+| 이동평균 | 8.4 | 71% | — |
+| ARIMA | 6.1 | 79% | 12분 |
+| LightGBM | 3.2 | 92% | 4분 |
+highlight: 3
+
+→ 이동평균 대비 정확도가 ==21%p== 높음
+
+---
+
+# 감사합니다
+## 질문 받겠습니다`;
+
+$('sample').onclick = () => { $('src').value = SAMPLE; check(); };
+$('open').onclick = () => $('srcFile').click();
+$('srcFile').onchange = async (e) => { const f = e.target.files[0]; if (f) { $('src').value = await f.text(); check(); } };
+let timer; $('src').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(check, 300); });
+
+$('drop').onclick = () => $('imgFile').click();
+$('imgFile').onchange = async (e) => { await addFiles(e.target.files); e.target.value = ''; };
+['dragenter', 'dragover'].forEach(t => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.add('on'); }));
+['dragleave', 'drop'].forEach(t => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.remove('on'); }));
+$('drop').addEventListener('drop', (e) => addFiles(e.dataTransfer.files));
+$('clear').onclick = () => { images.forEach(i => URL.revokeObjectURL(i.url)); images = []; renderFiles(); };
+// 사진 한 장씩 빼기
+$('files').addEventListener('click', (e) => {
+  const btn = e.target.closest('.del'); if (!btn) return;
+  const i = Number(btn.dataset.i);
+  if (images[i]) { URL.revokeObjectURL(images[i].url); images.splice(i, 1); renderFiles(); }
+});
+
+async function shrink(file) {
+  const bmp = await createImageBitmap(file);
+  const max = 2560, scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  if (scale === 1 && file.size < 4e6) return new Uint8Array(await file.arrayBuffer());
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+  const blob = await new Promise(r => c.toBlob(r, type, 0.9));
+  return new Uint8Array(await blob.arrayBuffer());
+}
+async function addFiles(list) {
+  for (const f of list) {
+    if (!/image\/(png|jpe?g|gif|webp)/.test(f.type)) { $('out').textContent = '지원하지 않는 형식: ' + f.name + ' (HEIC는 JPG로 변환)'; continue; }
+    try {
+      const bytes = await shrink(f);
+      const url = URL.createObjectURL(new Blob([bytes], { type: f.type }));
+      images.filter(i => i.name === f.name).forEach(i => URL.revokeObjectURL(i.url));
+      images = images.filter(i => i.name !== f.name).concat({ name: f.name, bytes, url });
+    }
+    catch (e) { $('out').textContent = '사진을 읽지 못했습니다: ' + f.name; }
+  }
+  renderFiles();
+}
+
+const base = (n) => String(n).toLowerCase().replace(/^.*[\\/]/, '').replace(/\.[a-z0-9]+$/, '');
+function renderFiles() {
+  const named = refs.filter(r => r !== 'auto' && !/^https?:/i.test(r));
+  const have = new Set(images.map(i => base(i.name)));
+  const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let html = images.map((im, idx) => {
+    const hit = named.some(r => base(r) === base(im.name));
+    return `<div class="f"><img src="${im.url}" alt=""><span class="name" title="${esc(im.name)}">${esc(im.name)}</span>` +
+      `<span class="st ${hit ? 'ok' : 'muted'}">${hit ? '연결됨' : 'auto 대기'}</span>` +
+      `<button class="del" data-i="${idx}" title="이 사진 빼기">×</button></div>`;
+  }).join('');
+  html += named.filter(r => !have.has(base(r))).map(r =>
+    `<div class="f"><span class="ph"></span><span class="name">${esc(r)}</span><span class="st miss">파일 필요</span></div>`).join('');
+  $('files').innerHTML = html;
+}
+
+function check() {
+  if (!$('src').value.trim()) { $('status').textContent = ''; refs = []; renderFiles(); return; }
+  parent.postMessage({ pluginMessage: { type: 'parse', source: $('src').value } }, '*');
+}
+
+$('go').onclick = () => {
+  if (!$('src').value.trim()) { $('out').textContent = '내용을 넣어 주세요.'; return; }
+  $('go').disabled = true;
+  $('out').textContent = '만드는 중…';
+  const colors = $('override').checked ? { highlight: $('hl').value, point: $('pt').value } : null;
+  parent.postMessage({ pluginMessage: { type: 'build', source: $('src').value, images: images.map(i => ({ name: i.name, bytes: i.bytes })), colors } }, '*');
+};
+
+onmessage = (e) => {
+  const m = e.data.pluginMessage; if (!m) return;
+  if (m.type === 'parsed') {
+    if (m.error) { $('status').textContent = '읽기 오류: ' + m.error; return; }
+    refs = m.refs; renderFiles();
+    if (m.colors && m.colors.highlight && !$('override').checked) $('hl').value = m.colors.highlight;
+    if (m.colors && m.colors.point && !$('override').checked) $('pt').value = m.colors.point;
+    $('status').textContent = `${m.slides}장` + (m.warnings.length ? ` · 점검할 곳 ${m.warnings.length}개` : ' · 점검 통과');
+    $('out').textContent = m.warnings.length ? '점검할 곳\n· ' + m.warnings.join('\n· ') : '';
+  }
+  if (m.type === 'progress') $('out').textContent = `만드는 중… ${m.done + 1} / ${m.total}`;
+  if (m.type === 'error') { $('go').disabled = false; $('out').textContent = '오류: ' + m.message; }
+  if (m.type === 'done') {
+    $('go').disabled = false;
+    $('out').textContent = `${m.count}장 완료 · 폰트 ${m.font}` + (m.warnings.length ? '\n\n점검할 곳\n· ' + m.warnings.join('\n· ') : '');
+  }
+};
+</script>
